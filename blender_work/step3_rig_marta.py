@@ -196,6 +196,25 @@ for side, sg in (('Left', 1), ('Right', -1)):
         per_vertex[i] = {n: x for n, x in w.items() if x > 1e-4}; arm_fixed += 1
 print('ARMS_REBUILT', arm_fixed, flush=True)
 
+# Waist matched to Felipe II's (the most natural one in game): the lower spine
+# takes over from 8 cm above the hip joint (55% at the belt) and the belt band
+# below the rigid cuirass is 10 cm wide, so the waist bends smoothly over
+# Hips -> Spine -> Spine1 instead of creasing right under the cuirass.
+def _sm(x): x = min(1., max(0., x)); return x * x * (3 - 2 * x)
+hip_z = (J['LeftUpLeg']['head'].z + J['RightUpLeg']['head'].z) / 2
+WAIST_LO, WAIST_HI, WAIST_SPINE = hip_z + .08, 1.12, .55
+waist_fixed = 0
+for i, v in enumerate(mesh.data.vertices):
+    z = v.co.z
+    if z <= WAIST_LO or z >= WAIST_HI + .10: continue
+    w = per_vertex[i]
+    hs = w.get('Hips', 0) + w.get('Spine', 0)
+    if hs < .5: continue
+    s = WAIST_SPINE * _sm((z - WAIST_LO) / (WAIST_HI - WAIST_LO))
+    if w.get('Spine', 0) >= s * hs: continue
+    w['Spine'] = s * hs; w['Hips'] = hs - w['Spine']
+    waist_fixed += 1
+print('WAIST_SPINE', waist_fixed, 'hip_z', round(hip_z, 3), flush=True)
 # Iron cuirass: the breast and back plates are one rigid piece on the chest
 # (Spine1). The source rig spreads them over Hips/Spine/Spine1 like cloth, so
 # a twist of the spine bent the plates and their gold stripes. Above the belt
@@ -203,7 +222,7 @@ print('ARMS_REBUILT', arm_fixed, flush=True)
 # belt (a 6 cm band). On the front and back of the chest the clavicle and
 # upper-arm weights are also handed to the chest, fading out towards the
 # pauldrons, so raising an arm does not dent the breastplate.
-BELT_Z, BELT_BAND = 1.15, .03  # Don Juan's waist belt
+BELT_Z, BELT_BAND = 1.17, .05  # Don Juan's waist belt; wide band as on Felipe II
 CORE_X, SIDE_X = .12, .17
 neck_z = J['Neck']['head'].z
 for i, v in enumerate(mesh.data.vertices):
